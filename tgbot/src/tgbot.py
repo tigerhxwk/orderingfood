@@ -1,3 +1,4 @@
+#!/usr/bin/python3.9.6
 import telebot
 from telebot import types
 import logging
