@@ -15,9 +15,14 @@ async def on_startup (_):
 async def on_shutdown (_):
     logger.debug("Bot is going down")
 
-msghandlers.register_message_handlers(foodBotDispatcher)
-parsedMenu = menu_builder.make_menu(menu_file)
+def main ():
+    msghandlers.register_message_handlers(foodBotDispatcher)
+    parsedMenu = menu_builder.make_menu(menu_file)
 
-cbHandlers.register_callbacks_handler(foodBotDispatcher, parsedMenu)
+    cbHandlers.register_callbacks_handler(foodBotDispatcher, parsedMenu)
 
-executor.start_polling(foodBotDispatcher, skip_updates=True, on_startup=on_startup, on_shutdown=on_shutdown)
+    executor.start_polling(foodBotDispatcher, skip_updates=True, on_startup=on_startup, on_shutdown=on_shutdown)
+
+
+if __name__ == "__main__":
+	main()
