@@ -1,0 +1,8 @@
+version: "2.2"
+services:
+    bot:
+        build: .
+        environment:
+            - UID=998
+            - GID=100
+            - TZ=Asia/Novosibirsk
