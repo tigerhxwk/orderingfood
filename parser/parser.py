@@ -13,26 +13,36 @@ def GetPage(URL):
 	return page.content
 
 def ParsePage(PAGE):
-	result = {'category' : [], 'items' : []}
+
+	index = 0
+	result = {}
 
 	soup = BeautifulSoup(PAGE, 'html.parser')
 
 	table = soup.select('.corp-table > .corp-category')
 
+	ItemData = { 'index': [], 'name': [], 'price': [], 'info': [] }
+
 	for items in table:
-		categoryData = {'names' : [], 'prices': [], 'info' : []}
 
-		for name in items.select('.item-name > b'):
-			categoryData['names'].append(name.string)
+		for item in items.select('.corp-item-wrap >.corp-item'):
 
-		for price in items.select('.full-portion > .item-price > span'):
-			categoryData['prices'].append(price.string)
+			ItemData = { 'name': [], 'price': [], 'info': [] }
 
-		for description in items.select('.item-info'):
-			categoryData['info'].append(description.string)
+			for name in item.select('.item-name > b'):
+				ItemData['name'].append(name.string)
 
-		result['category'].append(items.select_one('.corp-category > h2').string)
-		result['items'].append(categoryData)
+			for price in item.select('.full-portion > .item-price > span'):
+				ItemData['price'].append(price.string)
+
+			for description in item.select('.item-info'):
+				ItemData['info'].append(description.string)
+
+			ItemsData.update({index: ItemData})
+			index = index + 1
+
+		result.update({items.select_one('.corp-category > h2').string: ItemsData.copy()})
+		ItemsData.clear()
 
 	return result
 
