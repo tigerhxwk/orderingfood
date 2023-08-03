@@ -1,4 +1,4 @@
-#!/usr/bin/python3.9.6
+#!/usr/bin/python3
 
 from aiogram.utils import executor
 from init_bot import foodBotDispatcher, logger
@@ -6,9 +6,12 @@ from datetime import datetime
 from handlers import msghandlers
 from handlers import cbHandlers
 from menu import menu_builder
+import os, json
 
 TIME_LIMIT_STRING = "Совместные заказы принимаются до 11:30 утра."
-menu_file = "../../parser/data.json"
+
+PARSED_MENU_JSON_FILE = os.getcwd() + "/data.json"
+
 async def on_startup (_):
     logger.debug("Bot started successfully")
 
@@ -17,7 +20,7 @@ async def on_shutdown (_):
 
 def main ():
     msghandlers.register_message_handlers(foodBotDispatcher)
-    parsedMenu = menu_builder.make_menu(menu_file)
+    parsedMenu = menu_builder.make_menu(PARSED_MENU_JSON_FILE)
 
     cbHandlers.register_callbacks_handler(foodBotDispatcher, parsedMenu)
 

@@ -10,7 +10,7 @@ ENV TZ=${TZ}
 ENV DEBIAN_FRONTEND="noninteractive"
 
 RUN apt-get -y update && apt-get -y upgrade && \
-    apt-get -y install apt-utils python3 pip tzdata locales
+    apt-get -y install apt-utils python3 pip tzdata locales cron
 
 ENV LANG en_US.utf8
 
@@ -26,10 +26,16 @@ ENV PATH = ${PATH}:/home/bot/.local/bin
 
 COPY parser /home/bot/parser
 COPY tgbot /home/bot/tgbot
+COPY start.sh /home/bot/start.sh
+COPY parser/cron_parser /etc/cron.d/cron_parser
 
 RUN chown bot:bot -R /home/bot/
 
+RUN service cron start
+
 USER bot
 
-RUN pip install -r ./parser/requirements.txt && \
-    pip install -r ./tgbot/src/requirements.txt
+RUN pip install -I -r ./parser/requirements.txt && \
+    pip install -I -r ./tgbot/src/requirements.txt
+
+CMD ["./start.sh"]
