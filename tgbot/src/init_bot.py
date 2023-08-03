@@ -1,11 +1,16 @@
 from aiogram import Bot
 from aiogram.dispatcher import Dispatcher
-import logging
+import logging, os
 
-api_file = open ("../http_api.key", "r")
-api_token = api_file.read().replace('\n', '')
+API_KEY_FILE = os.getcwd() + "/tgbot/http_api.key"
 
-foodBot = Bot(api_token)
+try:
+    keyfile = open(API_KEY_FILE, "r")
+except FileNotFoundError:
+    logger.debug ("file does not exist")
+    os.exit(1)
+
+foodBot = Bot(keyfile.read().replace('\n', ''))
 foodBotDispatcher = Dispatcher(foodBot)
 
 logger = logging.getLogger("actionlogger")
