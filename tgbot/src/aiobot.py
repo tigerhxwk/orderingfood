@@ -2,11 +2,10 @@
 
 from aiogram.utils import executor
 from init_bot import foodBotDispatcher, logger
-from datetime import datetime
 from handlers import msghandlers
 from handlers import cbHandlers
 from menu import menu_builder
-import os, json
+import os
 
 TIME_LIMIT_STRING = "Совместные заказы принимаются до 11:30 утра."
 
