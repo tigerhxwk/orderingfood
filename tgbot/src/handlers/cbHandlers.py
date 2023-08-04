@@ -6,25 +6,11 @@ from menu import buttons_builder
 
 categoryButtons = None
 parsedMenu = None
-
 async def category_callback (callback :types.CallbackQuery):
-    global parsedMenu
-
-    data = callback.data
-    logger.debug (f"{category_callback.__name__} received {data}")
+    logger.debug (f"{category_callback.__name__} received {callback.data}")
 #     this callback handles callback data that begins with category_<id>
 #     idea is to take id and us it in parsed menu to get according list of dishes
-    
-    indexes = parsedMenu[data[9:]]
-    markup = types.InlineKeyboardMarkup(row_width=1)
 
-    for key in indexes.keys():
-        names = indexes[key]['name']
-
-        for name in names:
-            markup.insert(types.InlineKeyboardButton(name, callback_data="discard"))
-
-    await foodBot.send_message(callback.message.chat.id, "Выбирай:", reply_markup=markup)
 
 async def menu_printer(callback :types.CallbackQuery):
     global categoryButtons

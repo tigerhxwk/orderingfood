@@ -15,13 +15,13 @@ def GetPage(URL):
 def ParsePage(PAGE):
 
 	index = 0
+	result = {}
 
 	soup = BeautifulSoup(PAGE, 'html.parser')
 
-	ItemsData = dict()
-	result = dict()
-
 	table = soup.select('.corp-table > .corp-category')
+
+	ItemData = { 'index': [], 'name': [], 'price': [], 'info': [] }
 
 	for items in table:
 
