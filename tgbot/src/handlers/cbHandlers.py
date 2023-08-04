@@ -6,6 +6,8 @@ from menu import buttons_builder
 
 categoryButtons = None
 parsedMenu = None
+currentCategory = None
+currentPrintCount = None
 
 def argument_overloader (input):
     if isinstance(input, types.CallbackQuery):
@@ -18,23 +20,25 @@ def argument_overloader (input):
     return selector.username, selector.first_name, selector.last_name, selector.id, message_id
 
 async def category_callback (callback :types.CallbackQuery):
-    global parsedMenu
+    global parsedMenu, currentCategory, currentPrintCount
 
     data = callback.data
     logger.debug (f"{category_callback.__name__} received {data}")
-#     this callback handles callback data that begins with category_<id>
-#     idea is to take id and us it in parsed menu to get according list of dishes
-    
-    indexes = parsedMenu[data[9:]]
-    markup = types.InlineKeyboardMarkup(row_width=1)
+#     this callback handles callback data that begins with category_<category>
+    try:
+        await foodBot.delete_message(callback.message.chat.id, callback.message.chat.message_id)
+    except:
+        logger.debug(f"Unable to delete message {callback.message.message_id} from chat {callback.message.chat.id}")
+    try:
+        await foodBot.delete_message(callback.message.chat.id, callback.message.chat.message_id - 1)
+    except:
+        logger.debug(f"Unable to delete message {callback.message.message_id - 1} from chat {callback.message.chat.id}")
 
-    for key in indexes.keys():
-        names = indexes[key]['name']
+    await foodBot.send_message(callback.message.chat.id, "Выбирай:")
+    currentCategory = data[9:]
+    currentPrintCount = 0
+    await send_category_contents (callback, parsedMenu[currentCategory], currentPrintCount)
 
-        for name in names:
-            markup.insert(types.InlineKeyboardButton(name, callback_data="discard"))
-
-    await foodBot.send_message(callback.message.chat.id, "Выбирай:", reply_markup=markup)
 
 async def menu_printer(callback :types.CallbackQuery):
     global categoryButtons
@@ -94,6 +98,47 @@ async def nothing_handler (callback : types.CallbackQuery):
     logger.debug(f"{first_name} selected nothing")
 
     await menu_printer(callback)
+
+async def send_category_contents (callback : types.CallbackQuery, Menu : dict (), start):
+    # delete previously sent messages
+    if start != 0:
+        for _ in 11:
+            try:
+                await foodBot.delete_message(callback.message.chat.id, callback.message.chat.message_id - _)
+            except:
+                logger.debug(
+                    f"Unable to delete message {callback.message.message_id - _} from chat {callback.message.chat.id}")
+
+    counter = 0
+    for key in Menu.keys():
+        if counter < start:
+            continue
+        elif counter >= start + 10:
+            markup = types.InlineKeyboardMarkup ()
+            markup.insert(types.InlineKeyboardButton("Далее", callback_data="next"))
+            markup.insert(types.InlineKeyboardButton("Назад", callback_data="previous"))
+            await foodBot.send_message(callback.message.chat.id, "Или:", reply_markup=markup)
+            break
+
+        names = Menu[key]['name']
+        prices = Menu[key]['price']
+        info = Menu[key]['info']
+
+        for name in names:
+            markup = types.InlineKeyboardMarkup(row_width=2)
+            markup.insert(types.InlineKeyboardButton("+", callback_data=f"add_{key}"))
+            markup.insert(types.InlineKeyboardButton("-", callback_data=f"rm_{key}"))
+            logger.debug (f"created cart-control buttons for key {key}")
+            stringToSend = f"*{name}:*\n"
+            for instance in info:
+                stringToSend += f"{instance}\n"
+            stringToSend += "Цена: "
+            for price in prices:
+                stringToSend += f"{price}"
+
+        await foodBot.send_message(callback.message.chat.id, stringToSend, parse_mode = "Markdown", reply_markup = markup)
+        counter += 1
+
 
 def register_callbacks_handler (foodDispatcher : Dispatcher, Menu : dict ()):
     global categoryButtons, parsedMenu
