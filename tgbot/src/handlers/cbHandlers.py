@@ -99,6 +99,8 @@ async def nothing_handler (callback : types.CallbackQuery):
 
     await menu_printer(callback)
 
+# start argument is used to skip already printed positions, 11 is counted by start + <how_many_to_print> + 1
+# <how_many_to_print> is 10 for now
 async def send_category_contents (callback : types.CallbackQuery, Menu : dict (), start):
     # delete previously sent messages
     if start != 0:
