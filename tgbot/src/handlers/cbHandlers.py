@@ -26,13 +26,9 @@ async def category_callback (callback :types.CallbackQuery):
     logger.debug (f"{category_callback.__name__} received {data}")
 #     this callback handles callback data that begins with category_<category>
     try:
-        await foodBot.delete_message(callback.message.chat.id, callback.message.chat.message_id)
+        await callback.message.delete()
     except:
         logger.debug(f"Unable to delete message {callback.message.message_id} from chat {callback.message.chat.id}")
-    try:
-        await foodBot.delete_message(callback.message.chat.id, callback.message.chat.message_id - 1)
-    except:
-        logger.debug(f"Unable to delete message {callback.message.message_id - 1} from chat {callback.message.chat.id}")
 
     await foodBot.send_message(callback.message.chat.id, "Выбирай:")
     currentCategory = data[9:]
@@ -40,7 +36,7 @@ async def category_callback (callback :types.CallbackQuery):
     await send_category_contents (callback, parsedMenu[currentCategory], currentPrintCount)
 
 
-async def menu_printer(callback :types.CallbackQuery):
+async def menu_printer(callback : types.CallbackQuery):
     global categoryButtons
     # Kinda function overload, callback_query_handler gives here CallbackQuery,
     # but message_handler gives here message, that is nested field of CallbackQuery
@@ -51,7 +47,7 @@ async def menu_printer(callback :types.CallbackQuery):
         await foodBot.delete_message(chat_id, message_id)
     except:
         logger.debug(f"Unable to delete message {message_id} from chat {chat_id}")
-
+    logger.debug(f'current message id is {message_id}')
     await foodBot.send_message(chat_id, "Выбирай категорию:", reply_markup=categoryButtons)
 
 async def discard (callback : types.CallbackQuery):
