@@ -4,10 +4,12 @@ from init_bot import foodBot, foodBotDispatcher, logger
 from handlers.msghandlers import starter as starter
 from menu import buttons_builder
 
+PRINT_LIMITER = 10
 categoryButtons = None
 parsedMenu = None
 currentCategory = None
 currentPrintCount = None
+lastPrintCount = None
 
 def argument_overloader (input):
     if isinstance(input, types.CallbackQuery):
@@ -37,7 +39,7 @@ async def category_callback (callback :types.CallbackQuery):
 
 
 async def menu_printer(callback : types.CallbackQuery):
-    global categoryButtons
+    global categoryButtons, currentPrintCount, lastPrintCount, currentCategory
     # Kinda function overload, callback_query_handler gives here CallbackQuery,
     # but message_handler gives here message, that is nested field of CallbackQuery
     username, first_name, last_name, chat_id, message_id = argument_overloader (callback)
@@ -48,20 +50,33 @@ async def menu_printer(callback : types.CallbackQuery):
     except:
         logger.debug(f"Unable to delete message {message_id} from chat {chat_id}")
     logger.debug(f'current message id is {message_id}')
+
+    currentPrintCount = 0
+    currentCategory = ''
+    lastPrintCount = 0
     await foodBot.send_message(chat_id, "Выбирай категорию:", reply_markup=categoryButtons)
 
 async def discard (callback : types.CallbackQuery):
     #need to make cart and 'end' features
+    global  currentPrintCount, lastPrintCount
     username, first_name, last_name, chat_id, message_id = argument_overloader(callback)
     logger.debug(f"user {username} {first_name} {last_name} changed his mind")
-    try:
-        await foodBot.delete_message(chat_id, message_id)
-    except:
-        logger.debug(f"Unable to delete message {message_id} from chat {chat_id}")
-    try:
-        await foodBot.delete_message(chat_id, message_id - 1)
-    except:
-        logger.debug(f"Unable to delete message {message_id - 1} from chat {chat_id}")
+    if lastPrintCount != 0:
+        for _ in range (0, lastPrintCount + 3):
+            try:
+                await foodBot.delete_message(chat_id, message_id - _)
+            except:
+                logger.debug(
+                    f"Unable to delete message {message_id - _} from chat {chat_id}")
+    else:
+        try:
+            await foodBot.delete_message(chat_id, message_id)
+        except:
+            logger.debug(f"Unable to delete message {message_id} from chat {chat_id}")
+        try:
+            await foodBot.delete_message(chat_id, message_id - 1)
+        except:
+            logger.debug(f"Unable to delete message {message_id - 1} from chat {chat_id}")
 
     await foodBot.send_message(chat_id, "Будем ждать снова!")
 
@@ -96,26 +111,38 @@ async def nothing_handler (callback : types.CallbackQuery):
     await menu_printer(callback)
 
 # start argument is used to skip already printed positions, 11 is counted by start + <how_many_to_print> + 1
-# <how_many_to_print> is 10 for now
+# <how_many_to_print> is PRINT_LIMITER for now
 async def send_category_contents (callback : types.CallbackQuery, Menu : dict (), start):
     # delete previously sent messages
-    if start != 0:
-        for _ in 11:
+    global currentPrintCount, lastPrintCount
+    if start < 0:
+        logger.debug (f"whoopsie, incorrect print value {start}")
+        return
+    if lastPrintCount != 0 and lastPrintCount != None:
+        for _ in range (0, lastPrintCount + 1):
             try:
-                await foodBot.delete_message(callback.message.chat.id, callback.message.chat.message_id - _)
+                await foodBot.delete_message(callback.message.chat.id, callback.message.message_id - _)
             except:
                 logger.debug(
                     f"Unable to delete message {callback.message.message_id - _} from chat {callback.message.chat.id}")
+        currentPrintCount -= lastPrintCount
 
     counter = 0
     for key in Menu.keys():
         if counter < start:
+            counter += 1
             continue
-        elif counter >= start + 10:
+        elif counter >= start + PRINT_LIMITER or key == list(Menu)[-1]:
             markup = types.InlineKeyboardMarkup ()
-            markup.insert(types.InlineKeyboardButton("Далее", callback_data="next"))
-            markup.insert(types.InlineKeyboardButton("Назад", callback_data="previous"))
-            await foodBot.send_message(callback.message.chat.id, "Или:", reply_markup=markup)
+            if key == list(Menu)[-1]:
+                markup.insert(types.InlineKeyboardButton("Меню", callback_data=f"return_from_contents_{counter}"))
+            else:
+                markup.insert(types.InlineKeyboardButton("Далее", callback_data="next"))
+            if start == 0:
+                markup.insert(types.InlineKeyboardButton("Меню", callback_data=f"return_from_contents_{counter}"))
+            else:
+                markup.insert(types.InlineKeyboardButton("Назад", callback_data="previous"))
+            await foodBot.send_message(callback.message.chat.id, "Или:", reply_markup=markup, disable_notification=True)
             break
 
         names = Menu[key]['name']
@@ -134,8 +161,42 @@ async def send_category_contents (callback : types.CallbackQuery, Menu : dict ()
             for price in prices:
                 stringToSend += f"{price}"
 
-        await foodBot.send_message(callback.message.chat.id, stringToSend, parse_mode = "Markdown", reply_markup = markup)
+        await foodBot.send_message(callback.message.chat.id, stringToSend, parse_mode = "Markdown",
+                                   reply_markup = markup, disable_notification=True)
         counter += 1
+    lastPrintCount = counter - start
+    currentPrintCount += lastPrintCount
+
+
+async def return_from_contents (callback : types.CallbackQuery):
+    global currentPrintCount, lastPrintCount
+    printedCounter = int(callback.data[21:])
+    logger.debug (f"received return with {printedCounter} printed positions")
+    if lastPrintCount is None:
+        rangeLimiter = PRINT_LIMITER
+    else:
+        rangeLimiter = lastPrintCount
+    for _ in range(0, rangeLimiter + 2):
+        try:
+            await foodBot.delete_message(callback.message.chat.id, callback.message.message_id - _)
+        except:
+            logger.debug(
+                f"Unable to delete message {callback.message.message_id - _} from chat {callback.message.chat.id}")
+    currentPrintCount = 0
+    lastPrintCount = 0
+    await menu_printer(callback)
+
+async def next_content (callback : types.CallbackQuery):
+    global parsedMenu, currentCategory, currentPrintCount
+    logger.debug(f"user {callback.message.chat.username} {callback.message.chat.first_name}"
+                 f" {callback.message.chat.last_name} requested next contents")
+    await send_category_contents (callback, parsedMenu[currentCategory], currentPrintCount)
+
+async def previous_content (callback : types.CallbackQuery):
+    global parsedMenu, currentCategory, currentPrintCount
+    logger.debug (f"handling previous contents for current print count {currentPrintCount}")
+    currentPrintCount -= lastPrintCount
+    await send_category_contents (callback, parsedMenu[currentCategory], currentPrintCount)
 
 
 def register_callbacks_handler (foodDispatcher : Dispatcher, Menu : dict ()):
@@ -145,6 +206,10 @@ def register_callbacks_handler (foodDispatcher : Dispatcher, Menu : dict ()):
     foodDispatcher.register_callback_query_handler(nothing_handler, Text(equals="discard"))
     foodDispatcher.register_callback_query_handler(show_cart, Text(equals="show_cart"))
     foodDispatcher.register_callback_query_handler(category_callback, Text(startswith="category_"))
+    foodDispatcher.register_callback_query_handler(return_from_contents,
+                                   Text(startswith="return_from_contents_"))
+    foodDispatcher.register_callback_query_handler(next_content, Text(equals="next"))
+    foodDispatcher.register_callback_query_handler(previous_content, Text(equals="previous"))
     categoryButtons = buttons_builder.create_categories_buttons(parsedMenu)
     foodDispatcher.register_message_handler(menu_printer, commands='show_menu')
     foodDispatcher.register_message_handler(discard, commands='discard')
