@@ -9,7 +9,8 @@ ENV TZ=${TZ}
 
 ENV DEBIAN_FRONTEND="noninteractive"
 
-RUN apt-get -y update && apt-get -y upgrade && \
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get -y update && apt-get -y upgrade && \
     apt-get -y install apt-utils python3 pip tzdata locales cron
 
 ENV LANG en_US.utf8
@@ -35,7 +36,8 @@ RUN service cron start
 
 USER bot
 
-RUN pip install -I -r ./parser/requirements.txt && \
-    pip install -I -r ./tgbot/src/requirements.txt
+RUN --mount=type=cache,target=.cache/pip \
+    pip install -r ./parser/requirements.txt && \
+    pip install -r ./tgbot/src/requirements.txt
 
 CMD ["./start.sh"]
