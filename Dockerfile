@@ -25,19 +25,28 @@ WORKDIR /home/bot/
 
 ENV PATH = ${PATH}:/home/bot/.local/bin
 
-COPY parser /home/bot/parser
-COPY tgbot /home/bot/tgbot
-COPY start.sh /home/bot/start.sh
-COPY parser/cron_parser /etc/cron.d/cron_parser
-
-RUN chown bot:bot -R /home/bot/
-
-RUN service cron start
+COPY /parser/requirements.txt /home/bot/parser/requirements.txt
+COPY tgbot/src/requirements.txt /home/bot/tgbot/src/requirements.txt
 
 USER bot
 
 RUN --mount=type=cache,target=.cache/pip \
     pip install -r ./parser/requirements.txt && \
     pip install -r ./tgbot/src/requirements.txt
+
+USER root
+
+COPY parser /home/bot/parser
+COPY tgbot /home/bot/tgbot
+COPY start.sh /home/bot/start.sh
+COPY parser/cron_parser /etc/cron.d/cron_parser
+
+RUN chown bot:bot -R /home/bot/parser && \
+    chown bot:bot -R /home/bot/tgbot && \
+    chown bot:bot    /home/bot/start.sh
+
+RUN service cron start
+
+USER bot
 
 CMD ["./start.sh"]
