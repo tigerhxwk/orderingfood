@@ -1,13 +1,19 @@
 from aiogram import Bot
 from aiogram.dispatcher import Dispatcher
-import logging, os
+import logging, os, sys
 
 API_KEY_FILE = os.getcwd() + "/tgbot/http_api.key"
 
 logger = logging.getLogger("actionlogger")
 logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler(f"{__name__}.log", mode='w')
+
 formatter = logging.Formatter("%(name)s %(asctime)s %(levelname)s %(message)s")
+
+handler = logging.FileHandler(f"{__name__}.log", mode='w')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
