@@ -3,7 +3,9 @@ from aiogram.dispatcher.filters import Text
 from init_bot import foodBot, foodBotDispatcher, logger
 from handlers.msghandlers import starter as starter
 from menu import buttons_builder
+from cart import cartApi
 
+globalCart = cartApi.Cart()
 PRINT_LIMITER = 10
 categoryButtons = None
 parsedMenu = None
@@ -83,12 +85,46 @@ async def discard (callback : types.CallbackQuery):
 
 async def show_cart (callback : types.CallbackQuery):
     username, first_name, last_name, chat_id, message_id = argument_overloader(callback)
+    global globalCart, parsedMenu
+
     logger.debug(f"user {username} {first_name} {last_name} requested cart")
     try:
         await foodBot.delete_message(chat_id, message_id)
     except:
         logger.debug(f"Unable to delete message {message_id} from chat {chat_id}")
-    await foodBot.send_message(chat_id, "Корзина по техническим причинам недоступна")
+
+    cartLen = globalCart.getLen (chat_id)
+
+    if cartLen == 0:
+        await foodBot.send_message(chat_id, "В корзине ничего нет...")
+    else:
+        await foodBot.send_message(chat_id, "Твой заказ:")
+        for itemId in range(cartLen):
+            item = globalCart.getItem(chat_id, itemId)
+            for category in parsedMenu:
+                logger.debug (f"checking category {category} for matching {item}")
+                menuItem = parsedMenu[category].keys()
+                if str(item) in menuItem:
+                    logger.debug (f"found match for {item} in {category}")
+                    markup = types.InlineKeyboardMarkup(row_width=1)
+                    markup.insert(types.InlineKeyboardButton("Удалить", callback_data=f"rm_{item}"))
+                    position = parsedMenu[category][str(item)]
+                    names = position['name']
+                    prices = position['price']
+                    info = position['info']
+                    for name in names:
+                        stringToSend = f"*{name}:*\n"
+                    for instance in info:
+                        stringToSend += f"{instance}\n"
+                    stringToSend += "Цена: "
+                    for price in prices:
+                        stringToSend += f"{price}"
+                    logger.debug(f"msg to send is {stringToSend}")
+
+                    await foodBot.send_message(chat_id, stringToSend, parse_mode="Markdown",
+                                               reply_markup=markup, disable_notification=True)
+                    break
+
 
     if isinstance(callback, types.CallbackQuery):
         await starter(callback.message)
@@ -97,6 +133,7 @@ async def show_cart (callback : types.CallbackQuery):
 
 async def nothing_handler (callback : types.CallbackQuery):
     _, first_name, _, chat_id, message_id = argument_overloader(callback)
+    global globalCart
     try:
         await foodBot.delete_message(chat_id, message_id)
     except:
@@ -107,7 +144,7 @@ async def nothing_handler (callback : types.CallbackQuery):
         logger.debug(f"Unable to delete message {message_id - 1} from chat {chat_id}")
 
     logger.debug(f"{first_name} selected nothing")
-
+    globalCart.clearCart(chat_id)
     await menu_printer(callback)
 
 # start argument is used to skip already printed positions, 11 is counted by start + <how_many_to_print> + 1
@@ -199,6 +236,18 @@ async def previous_content (callback : types.CallbackQuery):
     await send_category_contents (callback, parsedMenu[currentCategory], currentPrintCount)
 
 
+async def add_to_cart (callback : types.CallbackQuery):
+    global globalCart
+    logger.debug (f"{add_to_cart.__name__} received cbdata {callback.data} from chat {callback.message.chat.id}")
+    item = callback.data[4:]
+    globalCart.addToCart(callback.message.chat.id, item)
+
+async def remove_from_cart (callback : types.CallbackQuery):
+    global globalCart
+    logger.debug (f"{remove_from_cart.__name__} received cbdata {callback.data}")
+    item = callback.data[4:]
+    globalCart.rmItemFromCart (callback.message.chat.id, item)
+
 def register_callbacks_handler (foodDispatcher : Dispatcher, Menu : dict ()):
     global categoryButtons, parsedMenu
     parsedMenu = Menu
@@ -214,4 +263,6 @@ def register_callbacks_handler (foodDispatcher : Dispatcher, Menu : dict ()):
     foodDispatcher.register_message_handler(menu_printer, commands='show_menu')
     foodDispatcher.register_message_handler(discard, commands='discard')
     foodDispatcher.register_message_handler(show_cart, commands='show_cart')
+    foodDispatcher.register_callback_query_handler(add_to_cart, Text(startswith="add_"))
+    foodDispatcher.register_callback_query_handler(remove_from_cart, Text(startswith="rm_"))
     logger.debug ("registered callbacks and created buttons")
