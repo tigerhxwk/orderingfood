@@ -1,6 +1,5 @@
-from aiogram import Bot
-from aiogram.dispatcher import Dispatcher
 import logging, os, sys
+from botApi.foodBotApi import FoodBot
 
 API_KEY_FILE = os.getcwd() + "/tgbot/http_api.key"
 
@@ -24,6 +23,10 @@ except FileNotFoundError:
     # exit is a built-in function
     exit(1)
 
-foodBot = Bot(keyfile.read().replace('\n', ''))
-foodBotDispatcher = Dispatcher(foodBot)
+foodBot = FoodBot (keyfile.read().replace('\n', ''), logger)
+Bot, foodBotDispatcher = foodBot.GimmeTheBot()
+
+if Bot == 0:
+    logger.debug(f"shutting down the bot due to initialization error")
+    exit(1)
 
