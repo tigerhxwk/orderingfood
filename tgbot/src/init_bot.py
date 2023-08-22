@@ -24,7 +24,7 @@ except FileNotFoundError:
     # exit is a built-in function
     exit(1)
 
-foodBot = FoodBot (keyfile.read().replace('\n', ''))
+foodBot = FoodBot (keyfile.read().replace('\n', ''), logger)
 Bot, foodBotDispatcher = foodBot.GimmeTheBot()
 
 if Bot == 0:

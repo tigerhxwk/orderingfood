@@ -4,6 +4,7 @@ from init_bot import foodBot, foodBotDispatcher, logger
 from handlers.msghandlers import starter as starter
 from menu import buttons_builder
 from cart import cartApi
+from menu.menuNavigator import menuNav
 
 globalCart = cartApi.Cart()
 PRINT_LIMITER = 10
@@ -11,6 +12,7 @@ categoryButtons = None
 parsedMenu = None
 # following gotta be chat-dependent
 breadCrumbs = dict ()
+naviStorage = menuNav (logger)
 
 def argument_overloader (input):
     if isinstance(input, types.CallbackQuery):
@@ -23,7 +25,7 @@ def argument_overloader (input):
     return selector.username, selector.first_name, selector.last_name, selector.id, message_id
 
 async def category_callback (callback :types.CallbackQuery):
-    global parsedMenu, breadCrumbs
+    global parsedMenu, breadCrumbs, naviStorage
 
     data = callback.data
     logger.debug (f"{category_callback.__name__} received {data}")
@@ -31,15 +33,17 @@ async def category_callback (callback :types.CallbackQuery):
 
     await foodBot.sendMessage(callback, "Выбирай:", clear=True)
     breadCrumbs[callback.message.chat.id]['category'] = data[9:]
+    naviStorage.setCategory(callback.message.chat.id, data[9:])
     breadCrumbs[callback.message.chat.id]['currPrintCount'] = 0
     breadCrumbs[callback.message.chat.id]['pageCounter'] += 1
-    await send_category_contents (callback, parsedMenu[breadCrumbs[callback.message.chat.id]['category']],
-                                  breadCrumbs[callback.message.chat.id]['currPrintCount'],
-                                  breadCrumbs[callback.message.chat.id]['pageCounter'])
+    pageCounter = naviStorage.getPageCounter(callback.message.chat.id)
+    pageCounter += 1
+    await send_category_contents (callback, parsedMenu[naviStorage.getCategory(callback.message.chat.id)],
+                                  naviStorage.getCurrPrintCount(callback.message.chat.id), pageCounter)
 
 
 async def menu_printer(callback : types.CallbackQuery):
-    global breadCrumbs
+    global breadCrumbs, naviStorage
     # Kinda function overload, callback_query_handler gives here CallbackQuery,
     # but message_handler gives here message, that is nested field of CallbackQuery
     username, first_name, last_name, chat_id, message_id = argument_overloader (callback)
@@ -50,13 +54,16 @@ async def menu_printer(callback : types.CallbackQuery):
     chatBreadCrumbs['lastPrintCount'] = 0
     chatBreadCrumbs['pageCounter'] = 0
     breadCrumbs[chat_id] = chatBreadCrumbs
+    naviStorage.newChat(chat_id)
     await foodBot.sendMessage(callback, "Выбирай категорию:", markup=categoryButtons, clear=True)
 
 async def discard (callback : types.CallbackQuery):
+    global globalCart, naviStorage
     #need to make cart and 'end' features
     username, first_name, last_name, chat_id, message_id = argument_overloader(callback)
     logger.debug(f"user {username} {first_name} {last_name} changed his mind")
     del breadCrumbs[chat_id]
+    naviStorage.setCategory(chat_id)
     globalCart.clearCart(chat_id)
     await foodBot.sendMessage(callback, "Будем ждать снова!", clear=True)
 
@@ -113,15 +120,15 @@ async def nothing_handler (callback : types.CallbackQuery):
     breadCrumbs[chat_id]['currPrintCount'] = 0
     breadCrumbs[chat_id]['lastPrintCount'] = 0
     breadCrumbs[chat_id]['pageCounter'] = 0
+
     globalCart.clearCart(chat_id)
     await menu_printer(callback)
 
-# start argument is used to skip already printed positions, 11 is counted by start + <how_many_to_print> + 1
-# <how_many_to_print> is PRINT_LIMITER for now
+# start argument is used to skip already printed positions
 async def send_category_contents (callback : types.CallbackQuery, Menu : dict (), start, pageCounter):
-    global breadCrumbs
+    global breadCrumbs, naviStorage
     counter = 0
-    logger.debug(f"starter position {start}")
+    logger.debug(f"starter position {start} pagecounter {pageCounter}")
     await foodBot.sendMessage(callback, f"Страница:{pageCounter}", silent=True, clear=True)
     for key in Menu.keys():
         if counter < start:
@@ -148,7 +155,7 @@ async def send_category_contents (callback : types.CallbackQuery, Menu : dict ()
             markup = types.InlineKeyboardMarkup(row_width=2)
             markup.insert(types.InlineKeyboardButton("+", callback_data=f"add_{key}"))
             markup.insert(types.InlineKeyboardButton("-", callback_data=f"rm_{key}"))
-            logger.debug (f"created cart-control buttons for key {key}")
+            # logger.debug (f"created cart-control buttons for key {key}")
             stringToSend = f"*{name}:*\n"
             for instance in info:
                 stringToSend += f"{instance}\n"
@@ -159,8 +166,10 @@ async def send_category_contents (callback : types.CallbackQuery, Menu : dict ()
         await foodBot.sendMessage(callback, stringToSend, markup = markup)
         counter += 1
 
-    breadCrumbs[callback.message.chat.id]['lastPrintCount'] = counter - start
-    breadCrumbs[callback.message.chat.id]['currPrintCount'] = counter
+    naviStorage.setPageItemCount(callback.message.chat.id, pageCounter, counter - start)
+    naviStorage.setPageCounter(callback.message.chat.id, pageCounter)
+    logger.debug(f'set pageitemcount {counter - start}, pagecounter {pageCounter}'
+                 f' currprint {naviStorage.getCurrPrintCount(callback.message.chat.id)} ')
 
 
 async def return_from_contents (callback : types.CallbackQuery):
@@ -176,23 +185,31 @@ async def return_from_contents (callback : types.CallbackQuery):
     await menu_printer(callback)
 
 async def next_content (callback : types.CallbackQuery):
-    global parsedMenu, breadCrumbs
+    global parsedMenu, breadCrumbs, naviStorage
     logger.debug(f"user {callback.message.chat.username} {callback.message.chat.first_name}"
                  f" {callback.message.chat.last_name} requested next contents")
-    breadCrumbs[callback.message.chat.id]['pageCounter'] += 1
-    await send_category_contents (callback, parsedMenu[breadCrumbs[callback.message.chat.id]['category']],
-                                  breadCrumbs[callback.message.chat.id]['currPrintCount'],
-                                  breadCrumbs[callback.message.chat.id]['pageCounter'])
+
+    await send_category_contents (callback, parsedMenu[naviStorage.getCategory(callback.message.chat.id)],
+                                  naviStorage.getCurrPrintCount(callback.message.chat.id),
+                                  naviStorage.getPageCounter(callback.message.chat.id) + 1)
 
 async def previous_content (callback : types.CallbackQuery):
-    global parsedMenu, breadCrumbs
+    global parsedMenu, breadCrumbs, naviStorage
     logger.debug (f"handling previous contents for current print count {breadCrumbs[callback.message.chat.id]['currPrintCount']}")
     # gotta make per-page counters
+    #  curr print count - prev-page actual print count
+    # pagecounter --
+    chatId = callback.message.chat.id
+    currPrintCount = (naviStorage.getCurrPrintCount (chatId) -
+                      naviStorage.getPageItemCount(chatId, naviStorage.getPageCounter(chatId)) -
+                      naviStorage.getPageItemCount(chatId, naviStorage.getPageCounter(chatId) - 1))
+
+    logger.debug (f'oldprintCount {naviStorage.getCurrPrintCount (chatId)}, new {currPrintCount}')
+    pageCounter = naviStorage.getPageCounter(chatId) - 1
     breadCrumbs[callback.message.chat.id]['currPrintCount'] -= breadCrumbs[callback.message.chat.id]['lastPrintCount']
     breadCrumbs[callback.message.chat.id]['pageCounter'] = breadCrumbs[callback.message.chat.id]['pageCounter'] - 1
-    await send_category_contents (callback, parsedMenu[breadCrumbs[callback.message.chat.id]['category']],
-                                  breadCrumbs[callback.message.chat.id]['currPrintCount'],
-                                  breadCrumbs[callback.message.chat.id]['pageCounter'])
+    await send_category_contents (callback, parsedMenu[naviStorage.getCategory(chatId)],
+                                  currPrintCount, pageCounter)
 
 
 async def add_to_cart (callback : types.CallbackQuery):
