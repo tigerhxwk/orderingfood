@@ -9,7 +9,8 @@ import os
 
 TIME_LIMIT_STRING = "Совместные заказы принимаются до 11:30 утра."
 
-PARSED_MENU_JSON_FILE = os.getcwd() + "/data.json"
+PARSED_MENU_JSON_FILE = "../../parser/data.json"
+# PARSED_MENU_JSON_FILE = os.getcwd() + "/data.json"
 
 async def on_startup (_):
     logger.debug("Bot started successfully")
