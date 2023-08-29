@@ -27,14 +27,14 @@ ENV PATH = ${PATH}:/home/bot/.local/bin
 
 COPY /parser/requirements.txt /home/bot/parser/requirements.txt
 COPY tgbot/src/requirements.txt /home/bot/tgbot/src/requirements.txt
-COPY gsheets/requirements.txt /home/bot/gdrive_cred/requirements.txt
+COPY tgbot/src/gsheets/requirements.txt /home/bot/tgbot/src/gsheets/requirements.txt
 
 USER bot
 
 RUN --mount=type=cache,target=.cache/pip \
     pip install -r ./parser/requirements.txt && \
     pip install -r ./tgbot/src/requirements.txt && \
-    pip install -r ./gsheets/requirements.txt
+    pip install -r ./tgbot/src/gsheets/requirements.txt
 
 USER root
 
