@@ -5,6 +5,7 @@ from gspread_formatting import *
 from gspread.cell import Cell
 from oauth2client.service_account import ServiceAccountCredentials
 from string import ascii_uppercase
+import os
 
 colNames = ["Имя", "Название", "Стоимость",
             "Стоимость всего", "Итого", "По чеку",
@@ -13,7 +14,6 @@ class gHandler:
     __sheet = None
     __ws_list = dict ()
     __logger = None
-    __updates_list = dict ()
     def __init__(self, logger = None):
         if logger != None:
             self.__logger = logger
@@ -22,7 +22,11 @@ class gHandler:
                     'https://www.googleapis.com/auth/drive.file',
                     'https://www.googleapis.com/auth/drive']
 
-        credentials = ServiceAccountCredentials.from_json_keyfile_name('gsheets/olivkafoodv2-1cd18a3a7cde.json',
+        cred_file = os.getcwd() + "/tgbot/src/gsheets/cred.json"
+        # credentials = ServiceAccountCredentials.from_json_keyfile_name('gsheets/olivkafoodv2-1cd18a3a7cde.json',
+        #                                                                scopes)
+
+        credentials = ServiceAccountCredentials.from_json_keyfile_name(cred_file,
                                                                         scopes)
         gc = gspread.authorize(credentials)
 
@@ -36,6 +40,7 @@ class gHandler:
         for ws in ws_list:
             self.__ws_list[str(ws).split()[1].replace("'",'')] = ws
         self.__innerDebug(self.__ws_list)
+    __updates_list = dict ()
 
 
     def addWorkSheet (self, name, rows = 100, cols = 11):

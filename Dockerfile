@@ -28,6 +28,7 @@ ENV PATH = ${PATH}:/home/bot/.local/bin
 COPY /parser/requirements.txt /home/bot/parser/requirements.txt
 COPY tgbot/src/requirements.txt /home/bot/tgbot/src/requirements.txt
 COPY tgbot/src/gsheets/requirements.txt /home/bot/tgbot/src/gsheets/requirements.txt
+COPY tgbot/src/gsheets/cred.json /home/bot/tgbot/src/gsheets/cred.json
 
 USER bot
 
