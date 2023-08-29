@@ -1,7 +1,7 @@
 from aiogram import types, Dispatcher
 from init_bot import foodBot, foodBotDispatcher, logger
 
-TIME_LIMIT_STRING = "Совместные заказы принимаются до 11:30 утра."
+TIME_LIMIT_STRING = "Совместные заказы принимаются до 10:30 утра."
 
 async def starter (message):
     logger.debug(f"user {message.chat.username} {message.chat.first_name} {message.chat.last_name} used starter")
@@ -11,7 +11,7 @@ async def starter (message):
     end_btn = types.InlineKeyboardButton("Передумал(а) ✋", callback_data="discard")
     buttons.row(menu_btn, cart_btn)
     buttons.row(end_btn)
-    await foodBot.sendMessage(message, 'Что делаем?', markup=buttons)
+    await foodBot.sendMessage(message, 'Что делаем?', markup=buttons, clear=True)
 
 async def greeter (message):
     await foodBot.sendMessage(message, f"Привет, {message.chat.username}! \n" + TIME_LIMIT_STRING)

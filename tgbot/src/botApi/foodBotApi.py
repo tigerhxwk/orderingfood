@@ -49,7 +49,7 @@ class FoodBot:
     async def sendMessage(self, meta_data, message="Sample text", clear = False,
                     markup = None, silent = True, parsemode = "Markdown"):
         chat_id, curr_msg_id = self.__argumentOverloader(meta_data)
-        if clear == True:
+        if clear == True and chat_id in self.__sent_msg_counter:
             self.__innerDebug (f"current sent msgs amount is {self.__sent_msg_counter[chat_id]}")
             if chat_id in self.__sent_msg_counter:
                 for msg_counter in range (self.__sent_msg_counter[chat_id]):
@@ -73,6 +73,11 @@ class FoodBot:
             self.__sent_msg_counter[chat_id] = self.__sent_msg_counter[chat_id] + 1
         else:
             self.__sent_msg_counter[chat_id] = 1
+
+
+    async def send_notification (self, callback : types.CallbackQuery, message, alert = False):
+        await callback.answer(text=message, show_alert=alert)
+
 
     def __innerDebug (self, message=''):
         if self.__logger != None:

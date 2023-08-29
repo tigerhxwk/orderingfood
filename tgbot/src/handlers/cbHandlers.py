@@ -1,16 +1,33 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher.filters import Text
-from init_bot import foodBot, foodBotDispatcher, logger
+from init_bot import foodBot, foodBotDispatcher, logger, SheetApi
 from handlers.msghandlers import starter as starter
 from menu import buttons_builder
 from cart import cartApi
 from menu.menuNavigator import menuNav
+from datetime import datetime, timedelta
 
 globalCart = cartApi.Cart()
 PRINT_LIMITER = 10
+limitHour = 10
+limitMinute = 30
 categoryButtons = None
 parsedMenu = None
 naviStorage = menuNav (logger)
+# following variables and constants are for gdrive sheets - move it to another file?
+
+currRow = dict ()
+NAME_COLUMN = "A"
+ITEM_COLUMN = "B"
+PRICE_OF_POSITION = "C"
+TOTAL_FOR_PERSON = "D"
+TOTAL_FOR_ORDER = "E"
+BY_RECEIPT = "F" # unused by bot, actually
+TOTAL_FOR_PERSON_ACTUAL = "G"
+TOTAL_ORDER = "H"
+DELIVERY = "I"
+sheetUserInfo = dict()
+totalOrderPrice = dict ()
 
 def argument_overloader (input):
     if isinstance(input, types.CallbackQuery):
@@ -78,7 +95,7 @@ async def show_cart (callback : types.CallbackQuery):
                 if str(item) in menuItem:
                     logger.debug (f"found match for {item} in {category}")
                     markup = types.InlineKeyboardMarkup(row_width=1)
-                    markup.insert(types.InlineKeyboardButton("Удалить", callback_data=f"rm_{item}"))
+                    markup.insert(types.InlineKeyboardButton("Удалить", callback_data=f"cart_rm_{item}"))
                     position = parsedMenu[category][str(item)]
                     names = position['name']
                     prices = position['price']
@@ -95,11 +112,10 @@ async def show_cart (callback : types.CallbackQuery):
                     await foodBot.sendMessage(callback, stringToSend, markup=markup)
                     break
 
-
-    if isinstance(callback, types.CallbackQuery):
-        await starter(callback.message)
-    else:
-        await starter(callback)
+    controlmarkup = types.InlineKeyboardMarkup(row_width=2)
+    controlmarkup.insert(types.InlineKeyboardButton("Заказать", callback_data=f"order_submit"))
+    controlmarkup.insert(types.InlineKeyboardButton("Очистить корзину", callback_data=f"discard"))
+    await foodBot.sendMessage(callback, "Действие:", markup=controlmarkup)
 
 async def nothing_handler (callback : types.CallbackQuery):
     _, first_name, _, chat_id, message_id = argument_overloader(callback)
@@ -195,18 +211,100 @@ async def add_to_cart (callback : types.CallbackQuery):
     logger.debug (f"{add_to_cart.__name__} received cbdata {callback.data} from chat {callback.message.chat.id}")
     item = callback.data[4:]
     globalCart.addToCart(callback.message.chat.id, item)
+    await foodBot.send_notification(callback=callback, message="Добавлено в корзину")
 
 async def remove_from_cart (callback : types.CallbackQuery):
     global globalCart
     logger.debug (f"{remove_from_cart.__name__} received cbdata {callback.data}")
-    item = callback.data[4:]
+    item = callback.data[3:]
     globalCart.rmItemFromCart (callback.message.chat.id, item)
+    await foodBot.send_notification(callback=callback, message="Удалено из корзины")
+
+
+async def cart_rm_in_cart (callback : types.CallbackQuery):
+    global globalCart
+    logger.debug (f"{remove_from_cart.__name__} received cbdata {callback.data}")
+    item = callback.data[len('cart_rm_'):]
+    globalCart.rmItemFromCart (callback.message.chat.id, item)
+    await show_cart(callback)
+
+async def order_submit (callback : types.CallbackQuery):
+    global globalCart, limitHour, limitMinute, currRow, parsedMenu, sheetUserInfo, totalOrderPrice
+    username, first_name, last_name, chat_id, message_id = argument_overloader(callback)
+    logger.debug (f"user {username} {last_name}({chat_id}) submitted his order")
+
+    cartLen = globalCart.getLen (chat_id)
+
+    if cartLen == 0:
+        await foodBot.sendMessage(callback, "Сначала нужно что-нибудь выбрать", clear=True)
+    else:
+        dateTitle = datetime.today()
+        if (datetime.now().hour > limitHour or
+                datetime.now().hour == limitHour and datetime.now().minute >= limitMinute):
+            logger.debug(f"order is going for tomorrow")
+            dateTitle = dateTitle + timedelta(1)
+            await foodBot.send_notification(callback, message="Твой заказ будет перенесен на завтра!", alert=True)
+
+        dateTitleStr = f"{dateTitle.day}/{dateTitle.month}"
+
+        SheetApi.addWorkSheet(dateTitleStr)
+        currRow[dateTitleStr] = SheetApi.next_available_row(dateTitleStr) + 1
+        logger.debug(f" current free row is {currRow[dateTitleStr]}")
+
+        if dateTitleStr not in sheetUserInfo:
+            sheetUserInfo[dateTitleStr] = dict ()
+        logger.debug(f"{sheetUserInfo}")
+
+        if chat_id not in sheetUserInfo[dateTitleStr]:
+            sheetUserInfo[dateTitleStr][chat_id] = dict()
+            sheetUserInfo[dateTitleStr][chat_id]["startRow"] = currRow[dateTitleStr]
+            SheetApi.prepareForUpdate (dateTitleStr, f"{NAME_COLUMN}{currRow[dateTitleStr]}",
+                                       f"{username}:{first_name} {last_name}")
+            sheetUserInfo[dateTitleStr][chat_id]["totalPrice"] = 0
+
+        for itemId in range(cartLen):
+            item = globalCart.getItem(chat_id, itemId)
+            for category in parsedMenu:
+                menuItem = parsedMenu[category].keys()
+                if str(item) in menuItem:
+                    logger.debug (f"found match for {item} in {category}")
+                    position = parsedMenu[category][str(item)]
+
+                    for name in position['name']:
+                        SheetApi.prepareForUpdate(dateTitleStr, f"{ITEM_COLUMN}{currRow[dateTitleStr]}",name)
+
+
+                    for price in position['price']:
+                        SheetApi.prepareForUpdate(dateTitleStr, f"{PRICE_OF_POSITION}{currRow[dateTitleStr]}",
+                                                  str(price))
+                        sheetUserInfo[dateTitleStr][chat_id]["totalPrice"] += int (price)
+                    currRow[dateTitleStr] += 1
+                    break
+
+        SheetApi.prepareForUpdate(dateTitleStr, f"{TOTAL_FOR_PERSON}{sheetUserInfo[dateTitleStr][chat_id]['startRow']}",
+                                  sheetUserInfo[dateTitleStr][chat_id]['totalPrice'])
+
+        if dateTitleStr not in totalOrderPrice.keys():
+            totalOrderPrice[dateTitleStr] = int(SheetApi.getCellValue (dateTitleStr, f"{TOTAL_FOR_ORDER}3"))
+
+        for user in sheetUserInfo[dateTitleStr].keys():
+            totalOrderPrice[dateTitleStr] += int (sheetUserInfo[dateTitleStr][user]['totalPrice'])
+
+        SheetApi.prepareForUpdate(dateTitleStr, f"{TOTAL_FOR_ORDER}3", f"{totalOrderPrice[dateTitleStr]}")
+        SheetApi.runUpdate (dateTitleStr)
+        SheetApi.mergeNameColumn(dateTitleStr, sheetUserInfo[dateTitleStr][chat_id]['startRow'],
+                                 currRow[dateTitleStr] - 1)
+        try:
+            await foodBot.sendMessage(callback, "Заказ добавлен в общую корзину!", clear=True)
+        except:
+            await foodBot.sendMessage(callback, "Нет соединения с сервером...", clear=True)
+
 
 def register_callbacks_handler (foodDispatcher : Dispatcher, Menu : dict ()):
     global categoryButtons, parsedMenu
     parsedMenu = Menu
     foodDispatcher.register_callback_query_handler(menu_printer, Text(equals="menu"))
-    foodDispatcher.register_callback_query_handler(nothing_handler, Text(equals="discard"))
+    foodDispatcher.register_callback_query_handler(discard, Text(equals="discard"))
     foodDispatcher.register_callback_query_handler(show_cart, Text(equals="show_cart"))
     foodDispatcher.register_callback_query_handler(category_callback, Text(startswith="category_"))
     foodDispatcher.register_callback_query_handler(return_from_contents,
@@ -219,4 +317,6 @@ def register_callbacks_handler (foodDispatcher : Dispatcher, Menu : dict ()):
     foodDispatcher.register_message_handler(show_cart, commands='show_cart')
     foodDispatcher.register_callback_query_handler(add_to_cart, Text(startswith="add_"))
     foodDispatcher.register_callback_query_handler(remove_from_cart, Text(startswith="rm_"))
+    foodDispatcher.register_callback_query_handler(cart_rm_in_cart, Text(startswith="cart_rm_"))
+    foodDispatcher.register_callback_query_handler(order_submit, Text(startswith="order_submit"))
     logger.debug ("registered callbacks and created buttons")

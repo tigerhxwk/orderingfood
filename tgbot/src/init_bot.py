@@ -1,5 +1,6 @@
 import logging, os, sys
 from botApi.foodBotApi import FoodBot
+from gsheets.gsHandler import gHandler
 
 API_KEY_FILE = os.getcwd() + "/tgbot/http_api.key"
 
@@ -25,6 +26,8 @@ except FileNotFoundError:
 
 foodBot = FoodBot (keyfile.read().replace('\n', ''), logger)
 Bot, foodBotDispatcher = foodBot.GimmeTheBot()
+
+SheetApi = gHandler (logger)
 
 if Bot == 0:
     logger.debug(f"shutting down the bot due to initialization error")

@@ -1,0 +1,3 @@
+oauth2client --user
+gspread --user
+gspread_formatting

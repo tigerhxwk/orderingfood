@@ -19,9 +19,9 @@ class Cart:
 
 
     def rmItemFromCart (self, userId, item):
-        if userId in self.__cart:
-            self.__cart[userId].remove(item)
-            logger.debug (f"removed {item} from user {userId} cart")
+        if userId in self.__cart and int (item) in self.__cart[userId]:
+            self.__cart[userId].remove(int(item))
+            logger.debug (f"removed {int(item)} from user {userId} cart")
         else:
             logger.debug ("attempted to delete something that is missing in cart")
 
