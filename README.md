@@ -7,4 +7,4 @@ Usage:
 	clean: remove all build images
 	shell: build and get shell into container
 
-![](https://github.com/tigerhxwk/orderingfood/demo.gif)
+![](https://github.com/tigerhxwk/orderingfood/blob/master/demo.gif)
