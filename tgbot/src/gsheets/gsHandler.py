@@ -66,7 +66,11 @@ class gHandler:
     def next_available_row(self, name, cols_to_sample=2):
         # looks for empty row based on values appearing in 1st N columns
         cols = self.__ws_list[name].range(1, 1, self.__ws_list[name].row_count, cols_to_sample)
-        return max([cell.row for cell in cols if cell.value]) + 1
+        try:
+            row = max([cell.row for cell in cols if cell.value]) + 1
+            return row
+        except:
+            return 1
 
 
     def updateSingleCell (self, sheetId, cell, value):
