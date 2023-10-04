@@ -5,7 +5,7 @@ import requests, json
 
 def GetPage(URL):
 	try:
-		page = requests.get(URL, timeout=10)
+		page = requests.get(URL, timeout=30)
 	except page.exceptions.Timeout:
 		print("Connection is timed out")
 		return -1

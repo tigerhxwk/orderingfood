@@ -1,4 +1,6 @@
 #!/bin/bash
 
-/home/bot/parser/parser.py
-/home/bot/tgbot/src/aiobot.py
+killall -s 2 python
+rm -f data.json
+python /parser/parser.py
+python /tgbot/src/aiobot.py $TKEY

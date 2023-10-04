@@ -2,8 +2,6 @@ import logging, os, sys
 from botApi.foodBotApi import FoodBot
 from gsheets.gsHandler import gHandler
 
-API_KEY_FILE = os.getcwd() + "/tgbot/http_api.key"
-
 logger = logging.getLogger("actionlogger")
 logger.setLevel(logging.DEBUG)
 
@@ -17,14 +15,7 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-try:
-    keyfile = open(API_KEY_FILE, "r")
-except FileNotFoundError:
-    logger.debug ("key file does not exist")
-    # exit is a built-in function
-    exit(1)
-
-foodBot = FoodBot (keyfile.read().replace('\n', ''), logger)
+foodBot = FoodBot (sys.argv[1], logger)
 Bot, foodBotDispatcher = foodBot.GimmeTheBot()
 
 SheetApi = gHandler (logger)
