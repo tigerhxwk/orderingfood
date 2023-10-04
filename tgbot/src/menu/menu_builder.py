@@ -12,7 +12,6 @@ def make_menu (filepath):
         return 1
 
     for category in parsedMenu.keys():
-        logger.debug ("received categories:")
-        logger.debug (f"\t{category}")
+        logger.debug (f"received categories: {category}")
 
     return parsedMenu

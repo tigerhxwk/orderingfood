@@ -22,7 +22,7 @@ class gHandler:
                     'https://www.googleapis.com/auth/drive.file',
                     'https://www.googleapis.com/auth/drive']
 
-        cred_file = os.getcwd() + "/tgbot/src/gsheets/cred.json"
+        cred_file = "/tgbot/src/gsheets/cred.json"
         # credentials = ServiceAccountCredentials.from_json_keyfile_name('gsheets/olivkafoodv2-1cd18a3a7cde.json',
         #                                                                scopes)
 

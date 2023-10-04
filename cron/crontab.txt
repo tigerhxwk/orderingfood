@@ -1,0 +1,2 @@
+@reboot bash -c '/start.sh'
+0 8 * * * bash -c '/start.sh'

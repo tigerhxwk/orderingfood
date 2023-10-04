@@ -5,4 +5,4 @@ services:
         environment:
             - UID=998
             - GID=100
-            - TZ=Asia/Novosibirsk
+            - TKEY= # telegram tocken

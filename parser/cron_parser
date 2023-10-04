@@ -1,3 +1,0 @@
-# every day at 0()
-
-0 9 * * * bot rm -f /home/bot/data.json && /home/bot/parser/parser.py
